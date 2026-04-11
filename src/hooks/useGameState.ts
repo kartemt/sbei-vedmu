@@ -109,12 +109,14 @@ function reducer(state: GameState, action: GameAction): GameState {
       const nextCase = cases[nextIndex];
 
       if (!nextCase) {
-        // Game over — but first show the final round's artifact if any
+        // Game over — show final round artifact first, then go to final
         const finishedRoundData = rounds.find((r) => r.round === currentCase?.round);
         const artifactId = finishedRoundData?.artifactId ?? null;
         if (artifactId) {
           return {
             ...state,
+            // Set index OUT OF BOUNDS so ARTIFACT_SEEN knows game is truly over
+            currentCaseIndex: cases.length,
             selectedAction: null,
             selectedProbeId: null,
             probeWasCorrect: null,

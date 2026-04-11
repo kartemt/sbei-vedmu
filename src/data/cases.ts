@@ -1,6 +1,8 @@
 import type { GameCase } from "../types";
 
-export const cases: GameCase[] = [
+const ROUND_CASE_LIMIT = 3;
+
+const allCases: GameCase[] = [
   // ─── РАУНД 1 — только очевидные ведьмы ────────────────────────────────────
   {
     id: "R1-1",
@@ -683,6 +685,12 @@ export const cases: GameCase[] = [
     },
   },
 ];
+
+const roundCounts: Record<number, number> = {};
+export const cases: GameCase[] = allCases.filter((c) => {
+  roundCounts[c.round] = (roundCounts[c.round] ?? 0) + 1;
+  return roundCounts[c.round] <= ROUND_CASE_LIMIT;
+});
 
 export const casesByRound = (round: 1 | 2 | 3 | 4): GameCase[] =>
   cases.filter((c) => c.round === round);

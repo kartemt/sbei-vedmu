@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { GameResults } from "../types";
 import { BackgroundScreen } from "../components/BackgroundScreen";
+import { trackRating, trackContact, trackCta } from "../utils/analytics";
 
 type Props = {
   results: GameResults;
@@ -23,15 +25,35 @@ function getScoreLabel(correct: number, total: number): string {
 }
 
 export function FinalScreen({ results, onRestart }: Props) {
+  const [rating, setRating] = useState<number | null>(null);
+  const [contact, setContact] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [hovered, setHovered] = useState<number | null>(null);
+
   const scoreLabel = getScoreLabel(results.correctAnswers, results.totalCases);
   const accuracy =
     results.totalCases > 0
       ? Math.round((results.correctAnswers / results.totalCases) * 100)
       : 0;
 
+  function handleRating(r: number) {
+    if (submitted) return;
+    setRating(r);
+    trackRating(r as 1 | 2 | 3 | 4 | 5);
+  }
+
+  function handleSubmit() {
+    if (submitted) return;
+    if (contact.trim()) trackContact(contact.trim());
+    trackCta();
+    setSubmitted(true);
+  }
+
   return (
     <BackgroundScreen bgKey="final">
       <div className="final-screen">
+
+        {/* ── ИТОГИ ───────────────────────────────── */}
         <div className="final-screen__header">
           <div className="final-screen__badge">Диагностика завершена</div>
           <h2 className="final-screen__title">{scoreLabel}</h2>
@@ -40,83 +62,92 @@ export function FinalScreen({ results, onRestart }: Props) {
 
         <div className="final-screen__stats">
           <div className="final-screen__stat">
-            <span className="final-screen__stat-value">
-              {results.witchesHitCorrectly}
-            </span>
-            <span className="final-screen__stat-label">ведьм сбито верно</span>
+            <span className="final-screen__stat-value">{results.witchesHitCorrectly}</span>
+            <span className="final-screen__stat-label">ведьм сбито</span>
           </div>
           <div className="final-screen__stat">
-            <span className="final-screen__stat-value">
-              {results.liveDealsSaved}
-            </span>
-            <span className="final-screen__stat-label">
-              живых сделок сохранено
-            </span>
-          </div>
-          <div className="final-screen__stat">
-            <span className="final-screen__stat-value">
-              {results.probeDecisionsCorrect}
-            </span>
-            <span className="final-screen__stat-label">
-              верных решений через вопрос
-            </span>
+            <span className="final-screen__stat-value">{results.liveDealsSaved}</span>
+            <span className="final-screen__stat-label">сделок сохранено</span>
           </div>
           <div className="final-screen__stat final-screen__stat--highlight">
-            <span className="final-screen__stat-value">
-              {formatDays(results.pipelineDaysSaved)}
-            </span>
-            <span className="final-screen__stat-label">
-              pipeline спасено
-            </span>
+            <span className="final-screen__stat-value">{formatDays(results.pipelineDaysSaved)}</span>
+            <span className="final-screen__stat-label">pipeline спасено</span>
           </div>
         </div>
 
-        <div className="final-screen__diagnosis">
-          {results.mainBlindSpot && (
-            <div className="final-screen__blind-spot">
-              <span className="final-screen__diagnosis-label">
-                Слепой угол:
-              </span>{" "}
-              {results.mainBlindSpot}
+        {results.mainBlindSpot && (
+          <div className="final-screen__diagnosis">
+            <span className="final-screen__diagnosis-label">Слепой угол: </span>
+            {results.mainBlindSpot}
+          </div>
+        )}
+
+        {/* ── РЕЙТИНГ ─────────────────────────────── */}
+        <div className="final-screen__rating-block">
+          <div className="final-screen__rating-label">
+            Насколько понравилось валить ведьм?
+          </div>
+          <div className="final-screen__stars">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                className={`final-screen__star ${
+                  (hovered ?? rating ?? 0) >= n ? "final-screen__star--active" : ""
+                } ${submitted ? "final-screen__star--disabled" : ""}`}
+                onClick={() => handleRating(n)}
+                onMouseEnter={() => !submitted && setHovered(n)}
+                onMouseLeave={() => setHovered(null)}
+                aria-label={`${n} из 5`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          {rating && !submitted && (
+            <div className="final-screen__rating-hint">
+              {["", "Тяжело, но полезно", "Есть над чем работать", "Норм", "Понравилось", "Огонь"][rating]}
             </div>
           )}
-
-          {results.dominantErrorPattern && (
-            <div className="final-screen__error-pattern">
-              <span className="final-screen__diagnosis-label">
-                Паттерн ошибки:
-              </span>{" "}
-              {results.dominantErrorPattern}
-            </div>
-          )}
-
-          {results.mainRedFlag && (
-            <div className="final-screen__red-flag">
-              <span className="final-screen__diagnosis-label">
-                Главный красный флаг:
-              </span>{" "}
-              {results.mainRedFlag}
-            </div>
-          )}
-
-          {!results.mainBlindSpot &&
-            !results.dominantErrorPattern &&
-            !results.mainRedFlag && (
-              <div className="final-screen__clean">
-                Слепых углов не обнаружено. Вы различаете живые сделки от ведьм.
-              </div>
-            )}
         </div>
 
-        <div className="final-screen__motto">
-          Не все тёплые сделки — живые.
-          <br />
-          Но и не все сложные сделки — ведьмы.
-        </div>
+        {/* ── КОНТАКТ + CTA ───────────────────────── */}
+        {!submitted ? (
+          <div className="final-screen__cta-block">
+            <div className="final-screen__cta-label">
+              Хотите продолжить прокачку квалификации?
+            </div>
+            <input
+              type="text"
+              className="final-screen__contact-input"
+              placeholder="Email или @telegram"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+            <button className="btn btn--primary btn--large" onClick={handleSubmit}>
+              Хочу продолжить путь
+            </button>
+            <button className="final-screen__skip" onClick={onRestart}>
+              Пройти ещё раз без регистрации
+            </button>
+          </div>
+        ) : (
+          <div className="final-screen__thanks">
+            <div className="final-screen__thanks-title">Отлично.</div>
+            <p className="final-screen__thanks-text">
+              Скоро пришлём следующий шаг. А пока — подумайте, какая сделка из вашего
+              текущего pipeline выглядит как ведьма.
+            </p>
+            <div className="final-screen__motto">
+              Не все тёплые сделки — живые.<br />
+              Но и не все сложные сделки — ведьмы.
+            </div>
+            <button className="btn btn--primary" onClick={onRestart}>
+              Пройти ещё раз
+            </button>
+          </div>
+        )}
 
-        <button className="btn btn--primary" onClick={onRestart}>
-          Пройти ещё раз
-        </button>
       </div>
     </BackgroundScreen>
   );
