@@ -1,5 +1,5 @@
 import { useReducer } from "react";
-import type { ActionType, CaseResult, GameState, Screen } from "../types";
+import type { ActionType, CaseResult, GameState } from "../types";
 import { cases } from "../data/cases";
 import { rounds } from "../data/rounds";
 import { computeResults } from "../utils/results";

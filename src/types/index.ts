@@ -1,3 +1,5 @@
+import type { GameAssetsArtifacts, GameAssetsCharacters } from "../config/gameAssets";
+
 export type ActionType = "hit" | "pass" | "probe";
 
 export type CharacterType =
@@ -55,14 +57,14 @@ export type ArtifactData = {
   id: string;
   name: string;
   description: string;
-  imageKey: keyof import("../config/gameAssets").GameAssetsArtifacts;
+  imageKey: keyof GameAssetsArtifacts;
 };
 
 export type CharacterData = {
   type: CharacterType;
   name: string;
   archetype: string;
-  imageKey: keyof import("../config/gameAssets").GameAssetsCharacters;
+  imageKey: keyof GameAssetsCharacters;
 };
 
 export type CaseResult = {
