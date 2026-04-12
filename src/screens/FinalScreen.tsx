@@ -123,30 +123,6 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
           </div>
         </div>
 
-        {/* ── ТАБЛИЦА ЛИДЕРОВ ───────────────── */}
-        {leaderboard.length > 0 && (
-          <div className="final-leaderboard">
-            <div className="final-leaderboard__title">Таблица охотников</div>
-            <div className="final-leaderboard__list">
-              {leaderboard.map((entry, i) => {
-                const isMe = entry.sessionId === mySessionId;
-                const name = isMe ? "Я" : hunterName(i);
-                return (
-                  <div
-                    key={entry.sessionId + i}
-                    className={`final-leaderboard__row ${isMe ? "final-leaderboard__row--me" : ""}`}
-                  >
-                    <span className="final-leaderboard__rank">#{i + 1}</span>
-                    <span className="final-leaderboard__name">{name}</span>
-                    <span className="final-leaderboard__score">{entry.score}/{entry.total}</span>
-                    <span className="final-leaderboard__accuracy">{entry.accuracy}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* ── РЕЙТИНГ ───────────────────────── */}
         {phase === "results" && (
           <div className="final-screen__rating-block">
@@ -181,6 +157,30 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
             <button className="btn btn--secondary" onClick={onRestart}>
               Пройти заново
             </button>
+          </div>
+        )}
+
+        {/* ── ТАБЛИЦА ЛИДЕРОВ ───────────────── */}
+        {leaderboard.length > 0 && (
+          <div className="final-leaderboard">
+            <div className="final-leaderboard__title">Таблица охотников</div>
+            <div className="final-leaderboard__list">
+              {leaderboard.map((entry, i) => {
+                const isMe = entry.sessionId === mySessionId;
+                const name = isMe ? "Я" : hunterName(i);
+                return (
+                  <div
+                    key={entry.sessionId + i}
+                    className={`final-leaderboard__row ${isMe ? "final-leaderboard__row--me" : ""}`}
+                  >
+                    <span className="final-leaderboard__rank">#{i + 1}</span>
+                    <span className="final-leaderboard__name">{name}</span>
+                    <span className="final-leaderboard__score">{entry.score}/{entry.total}</span>
+                    <span className="final-leaderboard__accuracy">{entry.accuracy}%</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

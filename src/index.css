@@ -63,7 +63,7 @@ html, body {
 ═══════════════════════════════════════════════════ */
 .bg-screen {
   position: relative;
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
