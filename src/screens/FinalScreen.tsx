@@ -188,7 +188,8 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
         {phase === "hunter" && (
           <div className="final-screen__hunter">
             <p className="final-screen__hunter-text">
-              Оставьте контакт — пришлём следующий материал по квалификации.
+              Куда прислать приглашение?<br />
+              E-mail или контакт в соцсетях.
             </p>
             <input
               className="final-screen__contact-input"
