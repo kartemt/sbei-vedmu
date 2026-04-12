@@ -48,7 +48,7 @@ function Game() {
           roundData={currentRoundData}
           isFirstCaseOfRound={isFirstCaseOfRound}
           caseNumber={state.currentCaseIndex + 1}
-          totalCases={9} // 3 rounds × 3 cases
+          totalCases={12} // 4 rounds × 3 cases
           onAction={(action, wasTimeout) =>
             dispatch({ type: "PLAYER_ACTION", action, wasTimeout })
           }
@@ -83,7 +83,7 @@ function Game() {
         <ArtifactScreen
           artifact={artifact}
           roundNumber={state.justFinishedRound}
-          isFinalRound={state.justFinishedRound === 3}
+          isFinalRound={state.justFinishedRound === 4}
           onContinue={() => dispatch({ type: "ARTIFACT_SEEN" })}
         />
       );

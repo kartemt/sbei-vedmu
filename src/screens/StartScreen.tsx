@@ -29,7 +29,7 @@ export function StartScreen({ onStart }: Props) {
         <button className="btn btn--primary btn--large" onClick={onStart}>
           Начать охоту
         </button>
-        <p className="start-screen__meta">3 раунда · 9 кейсов · Финальная диагностика</p>
+        <p className="start-screen__meta">4 раунда · 12 кейсов · Финальная диагностика</p>
       </div>
     </BackgroundScreen>
   );

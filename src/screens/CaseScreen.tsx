@@ -29,14 +29,16 @@ export function CaseScreen({
   onAction,
 }: Props) {
   const [flyState, setFlyState] = useState<FlyState>("flying");
-  const [resolved, setResolved] = useState(false);
+  const resolvedRef = useRef(false);     // useRef avoids stale closure in setTimeout
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const duration = roundData.flightDurationMs;
+  const durationSec = `${duration / 1000}s`;
 
-  // Auto-pass when flight ends
+  // Auto-pass when flight timer expires
   useEffect(() => {
     timerRef.current = setTimeout(() => {
-      if (!resolved) handleAction("pass", true);
+      // resolvedRef.current is read at call-time — no stale closure
+      if (!resolvedRef.current) handleAction("pass", true);
     }, duration);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -45,8 +47,8 @@ export function CaseScreen({
   }, []);
 
   function handleAction(action: ActionType, wasTimeout = false) {
-    if (resolved) return;
-    setResolved(true);
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (action === "hit" && !wasTimeout) {
@@ -61,11 +63,10 @@ export function CaseScreen({
     }
   }
 
-  const durationSec = `${duration / 1000}s`;
-
   return (
     <BackgroundScreen bgKey="caseScreen">
       <div className="case-screen">
+
         {/* ── HEADER ─────────────────────────────── */}
         <div className="case-screen__header">
           {isFirstCaseOfRound && (
@@ -81,7 +82,7 @@ export function CaseScreen({
         <div className="case-screen__sky">
           <div
             className={`witch-wrapper ${flyState === "flying" ? "witch-wrapper--flying" : "witch-wrapper--paused"}`}
-            style={{ "--flight-duration": durationSec } as React.CSSProperties}
+            style={{ animationDuration: durationSec }}
           >
             <CharacterImage
               characterType={gameCase.characterType}
@@ -115,12 +116,13 @@ export function CaseScreen({
               key={action}
               className={`btn btn--action btn--action-${action}`}
               onClick={() => handleAction(action)}
-              disabled={resolved}
+              disabled={resolvedRef.current}
             >
               {ACTION_LABELS[action]}
             </button>
           ))}
         </div>
+
       </div>
     </BackgroundScreen>
   );

@@ -1,5 +1,5 @@
+import { useEffect } from "react";
 import type { GameCase, OutcomeVariant } from "../types";
-import { BackgroundScreen } from "../components/BackgroundScreen";
 
 type Props = {
   gameCase: GameCase;
@@ -81,19 +81,27 @@ function getOutcome(variant: OutcomeVariant, gameCase: GameCase): OutcomeConfig 
   }
 }
 
+// Auto-advance delay (ms). Also clickable for instant advance.
+const AUTO_ADVANCE_MS = 2500;
+
 export function FeedbackScreen({ gameCase, variant, onNext }: Props) {
   const outcome = getOutcome(variant, gameCase);
 
+  // Auto-advance after delay — no button press needed
+  useEffect(() => {
+    const timer = setTimeout(onNext, AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <BackgroundScreen bgKey="feedback" overlay={false}>
-      <div className={`outcome ${outcome.colorClass}`} onClick={onNext}>
-        <div className="outcome__content">
-          <div className="outcome__emoji">{outcome.emoji}</div>
-          <div className="outcome__headline">{outcome.headline}</div>
-          <div className="outcome__sub">{outcome.sub}</div>
-          <div className="outcome__tap">нажмите, чтобы продолжить</div>
-        </div>
+    <div className={`outcome ${outcome.colorClass}`} onClick={onNext}>
+      <div className="outcome__content">
+        <div className="outcome__emoji">{outcome.emoji}</div>
+        <div className="outcome__headline">{outcome.headline}</div>
+        <div className="outcome__sub">{outcome.sub}</div>
+        <div className="outcome__tap">нажмите, чтобы продолжить</div>
       </div>
-    </BackgroundScreen>
+    </div>
   );
 }
