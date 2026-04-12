@@ -10,6 +10,7 @@ import { FinalScreen } from "./screens/FinalScreen";
 import { DashboardScreen } from "./screens/DashboardScreen";
 import { artifactById } from "./data/artifacts";
 import { trackVisit, trackScreen3 } from "./utils/analytics";
+import { preloadRound1, preloadRemaining } from "./utils/preload";
 import type { ProbeOption } from "./types";
 
 const isDashboard = new URLSearchParams(window.location.search).has("dashboard");
@@ -34,7 +35,11 @@ function Game() {
 
   useEffect(() => {
     if (state.screen === "case") trackScreen3();
-  }, [state.screen]);
+    // Preload all round-1 gameplay assets as soon as game starts
+    if (state.screen === "case" && state.currentCaseIndex === 0) preloadRound1();
+    // Preload remaining assets when first artifact screen shows (player has ~5s to read)
+    if (state.screen === "artifact" && state.justFinishedRound === 1) preloadRemaining();
+  }, [state.screen, state.currentCaseIndex, state.justFinishedRound]);
 
   switch (state.screen) {
     case "start":
