@@ -1,15 +1,44 @@
-import { useState } from "react";
-import type { GameResults } from "../types";
+import { useState, useEffect } from "react";
+import type { GameResults, CaseResult } from "../types";
+import type { LeaderEntry } from "../utils/analytics";
 import { BackgroundScreen } from "../components/BackgroundScreen";
-import { trackRating, trackContact, trackCta, trackCompletion } from "../utils/analytics";
+import {
+  trackRating,
+  trackContact,
+  trackCta,
+  trackCompletion,
+  getLeaderboard,
+  getCurrentSessionId,
+} from "../utils/analytics";
 import { sanitizeContact } from "../utils/sanitize";
-import { useEffect } from "react";
 
 type Props = {
   results: GameResults;
-  caseResults: import("../types").CaseResult[];
+  caseResults: CaseResult[];
   onRestart: () => void;
 };
+
+// ── Fantasy hunter names for other leaderboard entries ────────────────────
+const HUNTER_NAMES = [
+  "Одинокий монах",
+  "Странствующий всадник",
+  "Тёмный охотник",
+  "Серебряный следопыт",
+  "Ночной страж",
+  "Лесной дозорный",
+  "Железный инквизитор",
+  "Потерянный рыцарь",
+  "Бродячий маг",
+  "Серый пилигрим",
+  "Безымянный следопыт",
+  "Хромой провидец",
+  "Последний вестник",
+  "Слепой пророк",
+];
+
+function hunterName(index: number): string {
+  return HUNTER_NAMES[index % HUNTER_NAMES.length];
+}
 
 function formatDays(days: number): string {
   if (days === 0) return "0 дней";
@@ -34,6 +63,8 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
   const [rating, setRating] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [contact, setContact] = useState("");
+  const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>([]);
+  const [mySessionId, setMySessionId] = useState<string | null>(null);
 
   const scoreLabel = getScoreLabel(results.correctAnswers, results.totalCases);
   const accuracy =
@@ -42,8 +73,13 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
       : 0;
 
   useEffect(() => {
+    const sessionId = getCurrentSessionId();
+    setMySessionId(sessionId);
+    // trackCompletion saves to localStorage synchronously,
+    // so getLeaderboard() immediately after has the current entry
     trackCompletion(results, caseResults);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLeaderboard(getLeaderboard());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleRating(r: number) {
@@ -87,6 +123,30 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
           </div>
         </div>
 
+        {/* ── ТАБЛИЦА ЛИДЕРОВ ───────────────── */}
+        {leaderboard.length > 0 && (
+          <div className="final-leaderboard">
+            <div className="final-leaderboard__title">Таблица охотников</div>
+            <div className="final-leaderboard__list">
+              {leaderboard.map((entry, i) => {
+                const isMe = entry.sessionId === mySessionId;
+                const name = isMe ? "Я" : hunterName(i);
+                return (
+                  <div
+                    key={entry.sessionId + i}
+                    className={`final-leaderboard__row ${isMe ? "final-leaderboard__row--me" : ""}`}
+                  >
+                    <span className="final-leaderboard__rank">#{i + 1}</span>
+                    <span className="final-leaderboard__name">{name}</span>
+                    <span className="final-leaderboard__score">{entry.score}/{entry.total}</span>
+                    <span className="final-leaderboard__accuracy">{entry.accuracy}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── РЕЙТИНГ ───────────────────────── */}
         {phase === "results" && (
           <div className="final-screen__rating-block">
@@ -109,12 +169,15 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
         {/* ── ДВЕ КНОПКИ ────────────────────── */}
         {(phase === "results" || phase === "rating") && (
           <div className="final-screen__cta-block">
-            <button
-              className="btn btn--primary btn--large"
-              onClick={() => setPhase("hunter")}
-            >
-              Вступить в ряды охотников на ведьм
-            </button>
+            <div className="final-screen__hunter-cta">
+              <button
+                className="btn btn--primary btn--large"
+                onClick={() => setPhase("hunter")}
+              >
+                Вступить в ряды охотников на ведьм
+              </button>
+              <span className="final-screen__cta-hint">E-mail или контакт в соцсетях</span>
+            </div>
             <button className="btn btn--secondary" onClick={onRestart}>
               Пройти заново
             </button>
@@ -125,12 +188,12 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
         {phase === "hunter" && (
           <div className="final-screen__hunter">
             <p className="final-screen__hunter-text">
-              Email или @telegram — пришлём следующий материал.
+              Оставьте контакт — пришлём следующий материал по квалификации.
             </p>
             <input
               className="final-screen__contact-input"
               type="text"
-              placeholder="email или @telegram"
+              placeholder="E-mail или контакт в соцсетях"
               value={contact}
               maxLength={120}
               onChange={(e) => setContact(e.target.value)}
@@ -138,7 +201,7 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
               autoFocus
             />
             <div className="final-screen__hunter-btns">
-              <button className="btn btn--primary" onClick={handleHunterJoin}>
+              <button className="btn btn--primary btn--large" onClick={handleHunterJoin}>
                 Вступить
               </button>
               <button className="btn btn--secondary" onClick={onRestart}>

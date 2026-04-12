@@ -171,6 +171,10 @@ export function trackCompletion(
   saveLeaderboard(board);
 }
 
+export function getCurrentSessionId(): string | null {
+  return sessionStorage.getItem(KEY_SESSION);
+}
+
 // ── Admin-only read API ───────────────────────────────────────────────────
 
 export function getAnalytics(): Store {

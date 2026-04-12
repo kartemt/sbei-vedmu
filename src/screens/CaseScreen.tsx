@@ -29,7 +29,7 @@ export function CaseScreen({
   onAction,
 }: Props) {
   const [flyState, setFlyState] = useState<FlyState>("flying");
-  const resolvedRef = useRef(false);     // useRef avoids stale closure in setTimeout
+  const resolvedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const duration = roundData.flightDurationMs;
   const durationSec = `${duration / 1000}s`;
@@ -37,7 +37,6 @@ export function CaseScreen({
   // Auto-pass when flight timer expires
   useEffect(() => {
     timerRef.current = setTimeout(() => {
-      // resolvedRef.current is read at call-time — no stale closure
       if (!resolvedRef.current) handleAction("pass", true);
     }, duration);
     return () => {
@@ -62,6 +61,10 @@ export function CaseScreen({
       onAction(action, wasTimeout);
     }
   }
+
+  // Round 1: hit only. Rounds 2-4: hit + probe. Pass is always auto (timeout).
+  const visibleActions: ActionType[] =
+    gameCase.round === 1 ? ["hit"] : ["hit", "probe"];
 
   return (
     <BackgroundScreen bgKey="caseScreen">
@@ -111,12 +114,12 @@ export function CaseScreen({
 
         {/* ── ACTIONS ────────────────────────────── */}
         <div className="case-screen__actions">
-          {gameCase.availableActions.map((action) => (
+          {visibleActions.map((action) => (
             <button
               key={action}
               className={`btn btn--action btn--action-${action}`}
               onClick={() => handleAction(action)}
-              disabled={resolvedRef.current}
+              disabled={flyState !== "flying"}
             >
               {ACTION_LABELS[action]}
             </button>

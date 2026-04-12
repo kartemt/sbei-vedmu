@@ -21,16 +21,12 @@ export function ContactGateScreen({ onContinue }: Props) {
     setTimeout(onContinue, 800);
   }
 
-  function handleSkip() {
-    onContinue();
-  }
-
   return (
     <BackgroundScreen bgKey="roundIntro">
       <div className="contact-gate">
-        <h2 className="contact-gate__title">Хочу продолжить охоту</h2>
+        <h2 className="contact-gate__title">Раунд 3 разблокирован</h2>
         <p className="contact-gate__text">
-          Оставьте email или @telegram — пришлём следующий раунд.
+          Оставьте контакт — пришлём следующий материал по квалификации.
         </p>
 
         {!submitted ? (
@@ -38,7 +34,7 @@ export function ContactGateScreen({ onContinue }: Props) {
             <input
               className="contact-gate__input"
               type="text"
-              placeholder="email или @telegram"
+              placeholder="E-mail или контакт в соцсетях"
               value={value}
               maxLength={120}
               onChange={(e) => setValue(e.target.value)}
@@ -48,7 +44,7 @@ export function ContactGateScreen({ onContinue }: Props) {
             <button className="btn btn--primary btn--large" onClick={handleSubmit}>
               Продолжить
             </button>
-            <button className="contact-gate__skip" onClick={handleSkip}>
+            <button className="contact-gate__skip" onClick={onContinue}>
               Пропустить
             </button>
           </>
