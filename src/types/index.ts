@@ -50,6 +50,7 @@ export type RoundData = {
   title: string;
   subtitle: string;
   introText: string;
+  flightDurationMs: number;
   artifactId?: string;
 };
 
@@ -80,6 +81,16 @@ export type CaseResult = {
   pipelineDaysLost?: number;
 };
 
+export type OutcomeVariant =
+  | "correct_hit"
+  | "wrong_hit"
+  | "correct_pass"
+  | "wrong_pass"
+  | "correct_probe"
+  | "wrong_probe"
+  | "timeout_witch"
+  | "timeout_deal";
+
 export type GameResults = {
   totalCases: number;
   correctAnswers: number;
@@ -95,11 +106,11 @@ export type GameResults = {
 
 export type Screen =
   | "start"
-  | "round_intro"
   | "case"
   | "probe"
-  | "feedback"
+  | "outcome"
   | "artifact"
+  | "contact_gate"
   | "final";
 
 export type GameState = {
@@ -108,6 +119,7 @@ export type GameState = {
   selectedAction: ActionType | null;
   selectedProbeId: string | null;
   probeWasCorrect: boolean | null;
+  outcomeVariant: OutcomeVariant | null;
   caseResults: CaseResult[];
   earnedArtifactIds: string[];
   pendingArtifactId: string | null;

@@ -1,113 +1,98 @@
-import type { ActionType, CaseFeedback, GameCase } from "../types";
+import type { GameCase, OutcomeVariant } from "../types";
 import { BackgroundScreen } from "../components/BackgroundScreen";
-import { CharacterImage } from "../components/CharacterImage";
 
 type Props = {
   gameCase: GameCase;
-  playerAction: ActionType;
-  probeWasCorrect: boolean | null;
+  variant: OutcomeVariant;
   onNext: () => void;
 };
 
-function getFeedback(
-  gameCase: GameCase,
-  playerAction: ActionType
-): CaseFeedback & { isCorrect: boolean } {
-  const isCorrect = playerAction === gameCase.correctAction;
-
-  if (isCorrect) return { ...gameCase.feedbackCorrect, isCorrect: true };
-
-  if (playerAction === "hit" && gameCase.feedbackWrongHit)
-    return { ...gameCase.feedbackWrongHit, isCorrect: false };
-  if (playerAction === "pass" && gameCase.feedbackWrongPass)
-    return { ...gameCase.feedbackWrongPass, isCorrect: false };
-  if (playerAction === "probe" && gameCase.feedbackWrongProbe)
-    return { ...gameCase.feedbackWrongProbe, isCorrect: false };
-
-  return { ...gameCase.feedbackCorrect, isCorrect };
+function daysToMonths(days: number | undefined): string {
+  if (!days) return "";
+  const m = Math.round(days / 30);
+  return m >= 1 ? `${m} мес` : `${days} дн`;
 }
 
-function getProbeMessage(
-  gameCase: GameCase,
-  playerAction: ActionType,
-  probeWasCorrect: boolean | null
-): string | null {
-  if (playerAction !== "probe" || probeWasCorrect === null) return null;
-  if (probeWasCorrect) return `Сильный вопрос: «${gameCase.strongQuestion}»`;
-  return `Слабый вопрос. Сильный был бы: «${gameCase.strongQuestion}»`;
+type OutcomeConfig = {
+  emoji: string;
+  headline: string;
+  sub: string;
+  colorClass: string;
+};
+
+function getOutcome(variant: OutcomeVariant, gameCase: GameCase): OutcomeConfig {
+  const saved = daysToMonths(gameCase.pipelineDaysSaved);
+
+  switch (variant) {
+    case "correct_hit":
+      return {
+        emoji: "💥",
+        headline: `Поздравляю! +${saved || "pipeline"} жизни`,
+        sub: "Это была ведьма. Правильно.",
+        colorClass: "outcome--win",
+      };
+    case "wrong_hit":
+      return {
+        emoji: "💀",
+        headline: `Увы — убита живая сделка${saved ? ` −${saved}` : ""}`,
+        sub: "Это была живая сделка.",
+        colorClass: "outcome--lose",
+      };
+    case "correct_pass":
+      return {
+        emoji: "✅",
+        headline: `Ура! Живая сделка${saved ? ` +${saved}` : ""}`,
+        sub: "Правильно пропущена.",
+        colorClass: "outcome--win",
+      };
+    case "wrong_pass":
+    case "timeout_witch":
+      return {
+        emoji: "🧙",
+        headline: `Ведьма ушла${saved ? ` −${saved} жизни` : ""}`,
+        sub: "Это была ведьма.",
+        colorClass: "outcome--lose",
+      };
+    case "timeout_deal":
+      return {
+        emoji: "✅",
+        headline: `Живая сделка${saved ? ` +${saved}` : ""}`,
+        sub: "Пропущена — правильно.",
+        colorClass: "outcome--win",
+      };
+    case "correct_probe":
+      return {
+        emoji: "🎯",
+        headline: "Сильный вопрос. Сделка вскрыта.",
+        sub: gameCase.strongQuestion
+          ? `«${gameCase.strongQuestion}»`
+          : "Квалификация прошла.",
+        colorClass: "outcome--win",
+      };
+    case "wrong_probe":
+      return {
+        emoji: "❓",
+        headline: "Слабый вопрос.",
+        sub: gameCase.strongQuestion
+          ? `Сильный: «${gameCase.strongQuestion}»`
+          : "Нужен более точный вопрос.",
+        colorClass: "outcome--neutral",
+      };
+  }
 }
 
-export function FeedbackScreen({
-  gameCase,
-  playerAction,
-  probeWasCorrect,
-  onNext,
-}: Props) {
-  const feedback = getFeedback(gameCase, playerAction);
-  const probeMsg = getProbeMessage(gameCase, playerAction, probeWasCorrect);
+export function FeedbackScreen({ gameCase, variant, onNext }: Props) {
+  const outcome = getOutcome(variant, gameCase);
 
   return (
-    <BackgroundScreen bgKey="feedback">
-      <div className="feedback-screen">
-        <div
-          className={`feedback-screen__verdict ${
-            feedback.isCorrect
-              ? "feedback-screen__verdict--correct"
-              : "feedback-screen__verdict--wrong"
-          }`}
-        >
-          <span className="feedback-screen__verdict-icon">
-            {feedback.isCorrect ? "✓" : "✗"}
-          </span>
-          <span className="feedback-screen__verdict-title">
-            {feedback.verdictTitle}
-          </span>
+    <BackgroundScreen bgKey="feedback" overlay={false}>
+      <div className={`outcome ${outcome.colorClass}`} onClick={onNext}>
+        <div className="outcome__content">
+          <div className="outcome__emoji">{outcome.emoji}</div>
+          <div className="outcome__headline">{outcome.headline}</div>
+          <div className="outcome__sub">{outcome.sub}</div>
+          <div className="outcome__tap">нажмите, чтобы продолжить</div>
         </div>
-
-        <div className="feedback-screen__body">
-          <div className="feedback-screen__character-area">
-            <CharacterImage
-              characterType={gameCase.characterType}
-              className="feedback-screen__character-img"
-            />
-            <div className="feedback-screen__character-name">
-              {gameCase.characterName}
-            </div>
-          </div>
-
-          <div className="feedback-screen__details">
-            {probeMsg && (
-              <div
-                className={`feedback-screen__probe-result ${
-                  probeWasCorrect
-                    ? "feedback-screen__probe-result--correct"
-                    : "feedback-screen__probe-result--wrong"
-                }`}
-              >
-                {probeMsg}
-              </div>
-            )}
-
-            <p className="feedback-screen__explanation">
-              {feedback.shortExplanation}
-            </p>
-
-            {feedback.errorPattern && (
-              <div className="feedback-screen__pattern">
-                <span className="feedback-screen__pattern-label">
-                  Паттерн ошибки:
-                </span>{" "}
-                {feedback.errorPattern}
-              </div>
-            )}
-
-            <div className="feedback-screen__impact">{feedback.pipelineImpact}</div>
-          </div>
-        </div>
-
-        <button className="btn btn--primary" onClick={onNext}>
-          Следующий кейс
-        </button>
       </div>
     </BackgroundScreen>
   );

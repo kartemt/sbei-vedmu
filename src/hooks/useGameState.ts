@@ -1,16 +1,21 @@
 import { useReducer } from "react";
-import type { ActionType, CaseResult, GameState } from "../types";
+import type {
+  ActionType,
+  CaseResult,
+  GameState,
+  OutcomeVariant,
+} from "../types";
 import { cases } from "../data/cases";
 import { rounds } from "../data/rounds";
 import { computeResults } from "../utils/results";
 
 type GameAction =
   | { type: "START_GAME" }
-  | { type: "ROUND_INTRO_DONE" }
-  | { type: "PLAYER_ACTION"; action: ActionType }
+  | { type: "PLAYER_ACTION"; action: ActionType; wasTimeout?: boolean }
   | { type: "PROBE_SELECTED"; probeId: string; isCorrect: boolean }
-  | { type: "NEXT_CASE" }
-  | { type: "ARTIFACT_SEEN" };
+  | { type: "OUTCOME_DONE" }
+  | { type: "ARTIFACT_SEEN" }
+  | { type: "CONTACT_SUBMITTED" };
 
 function getInitialState(): GameState {
   return {
@@ -19,6 +24,7 @@ function getInitialState(): GameState {
     selectedAction: null,
     selectedProbeId: null,
     probeWasCorrect: null,
+    outcomeVariant: null,
     caseResults: [],
     earnedArtifactIds: [],
     pendingArtifactId: null,
@@ -26,37 +32,68 @@ function getInitialState(): GameState {
   };
 }
 
+function deriveOutcome(
+  action: ActionType,
+  _correctAction: ActionType,
+  isWitch: boolean,
+  wasTimeout: boolean,
+  probeCorrect?: boolean
+): OutcomeVariant {
+  if (action === "probe") {
+    return probeCorrect ? "correct_probe" : "wrong_probe";
+  }
+  if (wasTimeout) {
+    return isWitch ? "timeout_witch" : "timeout_deal";
+  }
+  if (action === "hit") {
+    return isWitch ? "correct_hit" : "wrong_hit";
+  }
+  // action === "pass"
+  return !isWitch ? "correct_pass" : "wrong_pass";
+}
+
+const WITCH_TYPES = new Set([
+  "messenger_witch",
+  "researcher_witch",
+  "mirage_witch",
+  "golden_mirage_boss",
+]);
+
 function reducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case "START_GAME":
-      return { ...getInitialState(), screen: "round_intro" };
-
-    case "ROUND_INTRO_DONE":
-      return { ...state, screen: "case" };
+      return { ...getInitialState(), screen: "case" };
 
     case "PLAYER_ACTION": {
       const currentCase = cases[state.currentCaseIndex];
       if (!currentCase) return state;
 
+      // If probe with options → go to probe screen first
       if (
         action.action === "probe" &&
-        currentCase.probeOptions &&
-        currentCase.probeOptions.length > 0
+        !action.wasTimeout &&
+        currentCase.probeOptions?.length
       ) {
-        return {
-          ...state,
-          selectedAction: "probe",
-          screen: "probe",
-        };
+        return { ...state, selectedAction: "probe", screen: "probe" };
       }
 
-      const isCorrect = action.action === currentCase.correctAction;
+      const isWitch = WITCH_TYPES.has(currentCase.characterType);
+      const playerAction = action.wasTimeout ? "pass" : action.action;
+      const isCorrect = playerAction === currentCase.correctAction;
+
+      const outcomeVariant = deriveOutcome(
+        playerAction,
+        currentCase.correctAction,
+        isWitch,
+        action.wasTimeout ?? false
+      );
+
       const result: CaseResult = {
         caseId: currentCase.id,
         round: currentCase.round,
         characterType: currentCase.characterType,
         correctAction: currentCase.correctAction,
-        playerAction: action.action,
+        playerAction,
         isCorrect,
         errorPatternKey: isCorrect ? "" : currentCase.errorPatternKey,
         pipelineDaysSaved: isCorrect ? currentCase.pipelineDaysSaved : undefined,
@@ -65,8 +102,9 @@ function reducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        selectedAction: action.action,
-        screen: "feedback",
+        selectedAction: playerAction,
+        outcomeVariant,
+        screen: "outcome",
         caseResults: [...state.caseResults, result],
       };
     }
@@ -76,8 +114,6 @@ function reducer(state: GameState, action: GameAction): GameState {
       if (!currentCase) return state;
 
       const isCorrect = action.isCorrect;
-      const finalAction: ActionType =
-        isCorrect && currentCase.ifProbeLeadsToFinalHit ? "hit" : "probe";
       const caseIsCorrect = currentCase.correctAction === "probe";
 
       const result: CaseResult = {
@@ -97,59 +133,52 @@ function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         selectedProbeId: action.probeId,
         probeWasCorrect: isCorrect,
-        selectedAction: finalAction,
-        screen: "feedback",
+        selectedAction: "probe",
+        outcomeVariant: isCorrect ? "correct_probe" : "wrong_probe",
+        screen: "outcome",
         caseResults: [...state.caseResults, result],
       };
     }
 
-    case "NEXT_CASE": {
+    case "OUTCOME_DONE": {
       const currentCase = cases[state.currentCaseIndex];
       const nextIndex = state.currentCaseIndex + 1;
       const nextCase = cases[nextIndex];
 
       if (!nextCase) {
-        // Game over — show final round artifact first, then go to final
+        // Final round done — show its artifact then final screen
         const finishedRoundData = rounds.find((r) => r.round === currentCase?.round);
         const artifactId = finishedRoundData?.artifactId ?? null;
         if (artifactId) {
           return {
             ...state,
-            // Set index OUT OF BOUNDS so ARTIFACT_SEEN knows game is truly over
-            currentCaseIndex: cases.length,
+            currentCaseIndex: cases.length, // out-of-bounds → ARTIFACT_SEEN → final
             selectedAction: null,
             selectedProbeId: null,
             probeWasCorrect: null,
+            outcomeVariant: null,
             earnedArtifactIds: [...state.earnedArtifactIds, artifactId],
             pendingArtifactId: artifactId,
-            justFinishedRound: (currentCase?.round ?? null) as number | null,
+            justFinishedRound: currentCase?.round ?? null,
             screen: "artifact",
           };
         }
-        return {
-          ...state,
-          screen: "final",
-          selectedAction: null,
-          selectedProbeId: null,
-          probeWasCorrect: null,
-        };
+        return { ...state, screen: "final", selectedAction: null, outcomeVariant: null };
       }
 
       const justFinishedRound = currentCase?.round ?? null;
       const startingNewRound = nextCase.round !== currentCase?.round;
 
       if (startingNewRound) {
-        const finishedRoundData = rounds.find(
-          (r) => r.round === justFinishedRound
-        );
+        const finishedRoundData = rounds.find((r) => r.round === justFinishedRound);
         const artifactId = finishedRoundData?.artifactId ?? null;
-
         return {
           ...state,
           currentCaseIndex: nextIndex,
           selectedAction: null,
           selectedProbeId: null,
           probeWasCorrect: null,
+          outcomeVariant: null,
           earnedArtifactIds: artifactId
             ? [...state.earnedArtifactIds, artifactId]
             : state.earnedArtifactIds,
@@ -165,27 +194,28 @@ function reducer(state: GameState, action: GameAction): GameState {
         selectedAction: null,
         selectedProbeId: null,
         probeWasCorrect: null,
+        outcomeVariant: null,
         screen: "case",
       };
     }
 
     case "ARTIFACT_SEEN": {
-      // If there are no more cases to play, go to final
       const currentCase = cases[state.currentCaseIndex];
       if (!currentCase) {
+        // Out of cases → go to final
         return { ...state, pendingArtifactId: null, screen: "final" };
       }
 
-      // currentCaseIndex already points to the first case of the next round
-      const prevCase = cases[state.currentCaseIndex - 1];
-      const isFirstCaseOfNewRound = prevCase?.round !== currentCase.round;
+      // After round 2 artifact → contact gate before round 3
+      if (state.justFinishedRound === 2) {
+        return { ...state, pendingArtifactId: null, screen: "contact_gate" };
+      }
 
-      return {
-        ...state,
-        pendingArtifactId: null,
-        screen: isFirstCaseOfNewRound ? "round_intro" : "case",
-      };
+      return { ...state, pendingArtifactId: null, screen: "case" };
     }
+
+    case "CONTACT_SUBMITTED":
+      return { ...state, screen: "case" };
 
     default:
       return state;
@@ -197,13 +227,21 @@ export function useGameState() {
 
   const currentCase = cases[state.currentCaseIndex] ?? null;
   const currentRound = currentCase?.round ?? 1;
-  const currentRoundData = rounds.find((r) => r.round === currentRound) ?? rounds[0];
-  const gameResults = state.screen === "final" ? computeResults(state.caseResults) : null;
+  const currentRoundData =
+    rounds.find((r) => r.round === currentRound) ?? rounds[0];
+
+  const isFirstCaseOfRound =
+    state.currentCaseIndex === 0 ||
+    cases[state.currentCaseIndex - 1]?.round !== currentCase?.round;
+
+  const gameResults =
+    state.screen === "final" ? computeResults(state.caseResults) : null;
 
   return {
     state,
     currentCase,
     currentRoundData,
+    isFirstCaseOfRound,
     gameResults,
     dispatch,
   };

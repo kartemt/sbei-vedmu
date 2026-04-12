@@ -1,10 +1,13 @@
 import { useState } from "react";
 import type { GameResults } from "../types";
 import { BackgroundScreen } from "../components/BackgroundScreen";
-import { trackRating, trackContact, trackCta } from "../utils/analytics";
+import { trackRating, trackContact, trackCta, trackCompletion } from "../utils/analytics";
+import { sanitizeContact } from "../utils/sanitize";
+import { useEffect } from "react";
 
 type Props = {
   results: GameResults;
+  caseResults: import("../types").CaseResult[];
   onRestart: () => void;
 };
 
@@ -24,11 +27,13 @@ function getScoreLabel(correct: number, total: number): string {
   return "Нужна практика";
 }
 
-export function FinalScreen({ results, onRestart }: Props) {
+type Phase = "results" | "rating" | "hunter" | "done";
+
+export function FinalScreen({ results, caseResults, onRestart }: Props) {
+  const [phase, setPhase] = useState<Phase>("results");
   const [rating, setRating] = useState<number | null>(null);
-  const [contact, setContact] = useState("");
-  const [submitted, setSubmitted] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
+  const [contact, setContact] = useState("");
 
   const scoreLabel = getScoreLabel(results.correctAnswers, results.totalCases);
   const accuracy =
@@ -36,28 +41,35 @@ export function FinalScreen({ results, onRestart }: Props) {
       ? Math.round((results.correctAnswers / results.totalCases) * 100)
       : 0;
 
+  useEffect(() => {
+    trackCompletion(results, caseResults);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleRating(r: number) {
-    if (submitted) return;
     setRating(r);
     trackRating(r as 1 | 2 | 3 | 4 | 5);
+    setTimeout(() => setPhase("rating"), 300);
   }
 
-  function handleSubmit() {
-    if (submitted) return;
-    if (contact.trim()) trackContact(contact.trim());
-    trackCta();
-    setSubmitted(true);
+  function handleHunterJoin() {
+    const clean = sanitizeContact(contact);
+    if (clean) {
+      trackContact(clean);
+      trackCta();
+    }
+    setPhase("done");
   }
 
   return (
     <BackgroundScreen bgKey="final">
       <div className="final-screen">
 
-        {/* ── ИТОГИ ───────────────────────────────── */}
+        {/* ── ИТОГИ ─────────────────────────── */}
         <div className="final-screen__header">
-          <div className="final-screen__badge">Диагностика завершена</div>
+          <div className="final-screen__badge">Охота завершена</div>
           <h2 className="final-screen__title">{scoreLabel}</h2>
-          <div className="final-screen__accuracy">{accuracy}% точность</div>
+          <div className="final-screen__accuracy">{accuracy}%</div>
         </div>
 
         <div className="final-screen__stats">
@@ -75,75 +87,76 @@ export function FinalScreen({ results, onRestart }: Props) {
           </div>
         </div>
 
-        {results.mainBlindSpot && (
-          <div className="final-screen__diagnosis">
-            <span className="final-screen__diagnosis-label">Слепой угол: </span>
-            {results.mainBlindSpot}
+        {/* ── РЕЙТИНГ ───────────────────────── */}
+        {phase === "results" && (
+          <div className="final-screen__rating-block">
+            <div className="final-screen__rating-label">Насколько понравилось?</div>
+            <div className="final-screen__stars">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  className={`final-screen__star ${(hovered ?? 0) >= n || (rating ?? 0) >= n ? "final-screen__star--active" : ""}`}
+                  onClick={() => handleRating(n)}
+                  onMouseEnter={() => setHovered(n)}
+                  onMouseLeave={() => setHovered(null)}
+                  aria-label={`${n} из 5`}
+                >★</button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* ── РЕЙТИНГ ─────────────────────────────── */}
-        <div className="final-screen__rating-block">
-          <div className="final-screen__rating-label">
-            Насколько понравилось валить ведьм?
-          </div>
-          <div className="final-screen__stars">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                className={`final-screen__star ${
-                  (hovered ?? rating ?? 0) >= n ? "final-screen__star--active" : ""
-                } ${submitted ? "final-screen__star--disabled" : ""}`}
-                onClick={() => handleRating(n)}
-                onMouseEnter={() => !submitted && setHovered(n)}
-                onMouseLeave={() => setHovered(null)}
-                aria-label={`${n} из 5`}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-          {rating && !submitted && (
-            <div className="final-screen__rating-hint">
-              {["", "Тяжело, но полезно", "Есть над чем работать", "Норм", "Понравилось", "Огонь"][rating]}
-            </div>
-          )}
-        </div>
-
-        {/* ── КОНТАКТ + CTA ───────────────────────── */}
-        {!submitted ? (
+        {/* ── ДВЕ КНОПКИ ────────────────────── */}
+        {(phase === "results" || phase === "rating") && (
           <div className="final-screen__cta-block">
-            <div className="final-screen__cta-label">
-              Хотите продолжить прокачку квалификации?
-            </div>
-            <input
-              type="text"
-              className="final-screen__contact-input"
-              placeholder="Email или @telegram"
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            />
-            <button className="btn btn--primary btn--large" onClick={handleSubmit}>
-              Хочу продолжить путь
+            <button
+              className="btn btn--primary btn--large"
+              onClick={() => setPhase("hunter")}
+            >
+              Вступить в ряды охотников на ведьм
             </button>
-            <button className="final-screen__skip" onClick={onRestart}>
-              Пройти ещё раз без регистрации
+            <button className="btn btn--secondary" onClick={onRestart}>
+              Пройти заново
             </button>
           </div>
-        ) : (
-          <div className="final-screen__thanks">
-            <div className="final-screen__thanks-title">Отлично.</div>
-            <p className="final-screen__thanks-text">
-              Скоро пришлём следующий шаг. А пока — подумайте, какая сделка из вашего
-              текущего pipeline выглядит как ведьма.
+        )}
+
+        {/* ── КОНТАКТ (охотники) ────────────── */}
+        {phase === "hunter" && (
+          <div className="final-screen__hunter">
+            <p className="final-screen__hunter-text">
+              Email или @telegram — пришлём следующий материал.
             </p>
-            <div className="final-screen__motto">
-              Не все тёплые сделки — живые.<br />
-              Но и не все сложные сделки — ведьмы.
+            <input
+              className="final-screen__contact-input"
+              type="text"
+              placeholder="email или @telegram"
+              value={contact}
+              maxLength={120}
+              onChange={(e) => setContact(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleHunterJoin()}
+              autoFocus
+            />
+            <div className="final-screen__hunter-btns">
+              <button className="btn btn--primary" onClick={handleHunterJoin}>
+                Вступить
+              </button>
+              <button className="btn btn--secondary" onClick={onRestart}>
+                Пройти заново
+              </button>
             </div>
+          </div>
+        )}
+
+        {/* ── СПАСИБО ───────────────────────── */}
+        {phase === "done" && (
+          <div className="final-screen__thanks">
+            <div className="final-screen__thanks-title">Записано.</div>
+            <p className="final-screen__thanks-text">
+              Думайте: какая сделка из вашего pipeline сейчас ведьма?
+            </p>
             <button className="btn btn--primary" onClick={onRestart}>
-              Пройти ещё раз
+              Пройти заново
             </button>
           </div>
         )}

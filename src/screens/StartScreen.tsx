@@ -15,33 +15,21 @@ export function StartScreen({ onStart }: Props) {
           <br />
           Некоторые из них — ведьмы.
         </p>
-        <div className="start-screen__description">
-          <p>
-            Вы будете видеть сигналы из реальных сделок и выбирать:
-          </p>
-          <ul className="start-screen__actions-list">
-            <li>
-              <strong>Сбить</strong> — если это ложная сделка
-            </li>
-            <li>
-              <strong>Пропустить</strong> — если сделка живая
-            </li>
-            <li>
-              <strong>Проверить вопросом</strong> — если нужна квалификация
-            </li>
-          </ul>
-          <p className="start-screen__note">
-            Тёплый контакт — не authority.
-            <br />
-            Пилот — не покупка.
-            <br />
-            Встречи — не прогресс.
-          </p>
+        <div className="start-screen__rules">
+          <div className="start-screen__rule">
+            <strong>Сбить</strong> — если это ложная сделка
+          </div>
+          <div className="start-screen__rule">
+            <strong>Пропустить</strong> — если сделка живая
+          </div>
+          <div className="start-screen__rule">
+            <strong>Задать вопрос</strong> — если нужна квалификация
+          </div>
         </div>
         <button className="btn btn--primary btn--large" onClick={onStart}>
           Начать охоту
         </button>
-        <p className="start-screen__meta">4 раунда · 19 кейсов · Финальная диагностика</p>
+        <p className="start-screen__meta">3 раунда · 9 кейсов · Финальная диагностика</p>
       </div>
     </BackgroundScreen>
   );
