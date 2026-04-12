@@ -4,13 +4,12 @@ import type { LeaderEntry } from "../utils/analytics";
 import { BackgroundScreen } from "../components/BackgroundScreen";
 import {
   trackRating,
-  trackContact,
   trackCta,
   trackCompletion,
   getLeaderboard,
   getCurrentSessionId,
 } from "../utils/analytics";
-import { sanitizeContact } from "../utils/sanitize";
+import { submitContact } from "../utils/contactSubmit";
 
 type Props = {
   results: GameResults;
@@ -75,8 +74,6 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
   useEffect(() => {
     const sessionId = getCurrentSessionId();
     setMySessionId(sessionId);
-    // trackCompletion saves to localStorage synchronously,
-    // so getLeaderboard() immediately after has the current entry
     trackCompletion(results, caseResults);
     setLeaderboard(getLeaderboard());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,12 +85,9 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
     setTimeout(() => setPhase("rating"), 300);
   }
 
-  function handleHunterJoin() {
-    const clean = sanitizeContact(contact);
-    if (clean) {
-      trackContact(clean);
-      trackCta();
-    }
+  async function handleHunterJoin() {
+    const result = await submitContact(contact);
+    if (result === "ok") trackCta();
     setPhase("done");
   }
 

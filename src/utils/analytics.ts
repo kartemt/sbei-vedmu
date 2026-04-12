@@ -1,17 +1,16 @@
 /**
- * Analytics — localStorage-based.
+ * Analytics — localStorage-based, non-PII only.
  *
- * SECURITY NOTE: This is a static frontend app. All data is stored in
- * localStorage and is accessible to anyone with access to the browser.
- * The admin PIN below is obfuscation, NOT true authentication.
- * Do not store highly sensitive information here. For production-grade
- * security, migrate contact storage to a backend/serverless endpoint.
+ * Contact collection has been moved to Supabase (src/utils/contactSubmit.ts).
+ * Only anonymous aggregate metrics are stored here: visit counts, completion
+ * counts, ratings, leaderboard scores. No email or personal data.
  */
 
 import type { CaseResult, GameResults } from "../types";
 
 // ── Admin access ──────────────────────────────────────────────────────────
-// Change this PIN before deploying. Share only with team members.
+// PIN protects the in-game metrics dashboard (non-PII data only).
+// Contacts are stored in Supabase and accessible only via server-side dashboard.
 export const ADMIN_PIN = "WH2026";
 
 export function checkAdminPin(input: string): boolean {
@@ -24,7 +23,6 @@ const KEY_LEADERBOARD = "wh_leaderboard";
 const KEY_SESSION = "wh_session";
 
 // ── Types ─────────────────────────────────────────────────────────────────
-export type ContactEntry = { value: string; date: string };
 export type RatingCounts = { 1: number; 2: number; 3: number; 4: number; 5: number };
 
 export type LeaderEntry = {
@@ -44,7 +42,6 @@ type Store = {
   returns: number;
   lastVisitDate: string | null;
   ratings: RatingCounts;
-  contacts: ContactEntry[];
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -53,7 +50,9 @@ function today(): string {
 }
 
 function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 10);
 }
 
 function defaultStore(): Store {
@@ -65,7 +64,6 @@ function defaultStore(): Store {
     returns: 0,
     lastVisitDate: null,
     ratings: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-    contacts: [],
   };
 }
 
@@ -135,17 +133,6 @@ export function trackRating(rating: 1 | 2 | 3 | 4 | 5): void {
   save(store);
 }
 
-/** Sanitized contact — caller is responsible for sanitizing before this. */
-export function trackContact(sanitizedValue: string): void {
-  if (!sanitizedValue) return;
-  const store = load();
-  store.contacts = [
-    { value: sanitizedValue, date: new Date().toLocaleString("ru-RU") },
-    ...store.contacts,
-  ].slice(0, 100); // keep last 100
-  save(store);
-}
-
 export function trackCompletion(
   results: GameResults,
   _caseResults: CaseResult[]
@@ -154,7 +141,6 @@ export function trackCompletion(
   store.completions += 1;
   save(store);
 
-  // Save to leaderboard
   const session = sessionStorage.getItem(KEY_SESSION) ?? uid();
   const entry: LeaderEntry = {
     sessionId: session,
@@ -195,8 +181,7 @@ export function exportAnalytics(): void {
     metrics: load(),
     leaderboard: loadLeaderboard(),
     exportedAt: new Date().toISOString(),
-    // SECURITY NOTE: contacts are included in this export.
-    // Share only with authorized team members.
+    note: "Contacts are stored in Supabase, not here.",
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",

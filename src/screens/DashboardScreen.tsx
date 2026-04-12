@@ -6,7 +6,7 @@ import {
   exportAnalytics,
   checkAdminPin,
 } from "../utils/analytics";
-import type { ContactEntry, LeaderEntry, RatingCounts } from "../utils/analytics";
+import type { LeaderEntry, RatingCounts } from "../utils/analytics";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type Metrics = {
@@ -16,7 +16,6 @@ type Metrics = {
   completions: number;
   returns: number;
   ratings: RatingCounts;
-  contacts: ContactEntry[];
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -41,7 +40,6 @@ function loadData(): { metrics: Metrics; leaderboard: LeaderEntry[] } {
       completions: a.completions,
       returns: a.returns,
       ratings: a.ratings,
-      contacts: a.contacts,
     },
     leaderboard: getLeaderboard(),
   };
@@ -51,15 +49,25 @@ function loadData(): { metrics: Metrics; leaderboard: LeaderEntry[] } {
 function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [locked, setLocked] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (locked) return;
     if (checkAdminPin(pin)) {
       onUnlock();
     } else {
+      const next = attempts + 1;
+      setAttempts(next);
       setError(true);
       setPin("");
       setTimeout(() => setError(false), 2000);
+      // Lock out after 5 failed attempts for 60 seconds
+      if (next >= 5) {
+        setLocked(true);
+        setTimeout(() => { setLocked(false); setAttempts(0); }, 60_000);
+      }
     }
   }
 
@@ -68,7 +76,11 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
       <div className="dashboard__gate-card">
         <div className="dashboard__gate-icon">🔒</div>
         <h2 className="dashboard__gate-title">Дашборд</h2>
-        <p className="dashboard__gate-sub">Введите PIN для доступа</p>
+        <p className="dashboard__gate-sub">
+          {locked
+            ? "Слишком много попыток. Подождите 60 секунд."
+            : "Введите PIN для доступа"}
+        </p>
         <form onSubmit={handleSubmit} className="dashboard__gate-form">
           <input
             className={`dashboard__gate-input ${error ? "dashboard__gate-input--error" : ""}`}
@@ -77,14 +89,19 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
             value={pin}
             maxLength={20}
             autoFocus
+            disabled={locked}
             onChange={(e) => setPin(e.target.value)}
             aria-label="Admin PIN"
           />
-          <button type="submit" className="btn btn--primary">
+          <button type="submit" className="btn btn--primary" disabled={locked}>
             Войти
           </button>
         </form>
-        {error && <div className="dashboard__gate-error">Неверный PIN</div>}
+        {error && !locked && <div className="dashboard__gate-error">Неверный PIN</div>}
+        <p className="dashboard__gate-note">
+          Контакты игроков хранятся в Supabase.<br />
+          Для их просмотра используйте серверный дашборд.
+        </p>
         <a href="./" className="dashboard__back dashboard__back--gate">← К игре</a>
       </div>
     </div>
@@ -96,7 +113,6 @@ export function DashboardScreen() {
   const [unlocked, setUnlocked] = useState(false);
   const [data, setData] = useState(loadData);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [showAllContacts, setShowAllContacts] = useState(false);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -111,41 +127,13 @@ export function DashboardScreen() {
   const { metrics, leaderboard } = data;
 
   const mainMetrics = [
-    {
-      label: "Посетители",
-      value: metrics.visits,
-      desc: "Уникальных сессий",
-    },
-    {
-      label: "До игры",
-      value: metrics.screen3Visits,
-      desc: "Дошли до кейсов",
-    },
-    {
-      label: "Прошли полностью",
-      value: metrics.completions,
-      desc: "Завершили все раунды",
-    },
-    {
-      label: "CTA-клики",
-      value: metrics.ctaClicks,
-      desc: "«Вступить в охотники» / контакт-гейт",
-    },
-    {
-      label: "Возвраты",
-      value: metrics.returns,
-      desc: "Зашли на следующий день",
-    },
-    {
-      label: "Оценок",
-      value: ratingTotal(metrics.ratings),
-      desc: `Средняя: ${ratingAvg(metrics.ratings)} / 5`,
-    },
+    { label: "Посетители",       value: metrics.visits,       desc: "Уникальных сессий" },
+    { label: "До игры",          value: metrics.screen3Visits, desc: "Дошли до кейсов" },
+    { label: "Прошли полностью", value: metrics.completions,  desc: "Завершили все раунды" },
+    { label: "CTA-клики",        value: metrics.ctaClicks,    desc: "«Вступить в охотники»" },
+    { label: "Возвраты",         value: metrics.returns,      desc: "Зашли на следующий день" },
+    { label: "Оценок",           value: ratingTotal(metrics.ratings), desc: `Средняя: ${ratingAvg(metrics.ratings)} / 5` },
   ];
-
-  // Contacts from "hunters" — those collected via FinalScreen CTA
-  // All contacts come from the same trackContact() function; we show all of them
-  const hunterContacts = metrics.contacts;
 
   function handleReset() {
     if (!confirmReset) { setConfirmReset(true); return; }
@@ -163,7 +151,7 @@ export function DashboardScreen() {
 
       {/* ── МЕТРИКИ ─────────────────────────────── */}
       <section className="dashboard__section">
-        <h2 className="dashboard__section-title">Метрики</h2>
+        <h2 className="dashboard__section-title">Метрики (этот браузер)</h2>
         <div className="dashboard__metrics-grid">
           {mainMetrics.map((m) => (
             <div key={m.label} className="dashboard__metric-card">
@@ -229,47 +217,20 @@ export function DashboardScreen() {
         )}
       </section>
 
-      {/* ── КОНТАКТЫ ОХОТНИКОВ ──────────────────── */}
+      {/* ── КОНТАКТЫ — только через серверный дашборд ── */}
       <section className="dashboard__section">
-        <div className="dashboard__section-header">
-          <h2 className="dashboard__section-title">Охотники (контакты)</h2>
-          {hunterContacts.length > 5 && (
-            <button
-              className="btn btn--secondary btn--sm"
-              onClick={() => setShowAllContacts(!showAllContacts)}
-            >
-              {showAllContacts ? "Свернуть" : `Все ${hunterContacts.length}`}
-            </button>
-          )}
+        <h2 className="dashboard__section-title">Контакты охотников</h2>
+        <div className="dashboard__info-note">
+          Контакты игроков хранятся в Supabase и доступны только через
+          серверный дашборд на Beget. Откройте его по адресу, указанному
+          при деплое.
         </div>
-        {hunterContacts.length === 0 ? (
-          <div className="dashboard__empty">Контактов пока нет</div>
-        ) : (
-          <div className="dashboard__table-wrap">
-            <table className="dashboard__table dashboard__contacts-table">
-              <thead>
-                <tr>
-                  <th>Контакт</th>
-                  <th>Дата</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(showAllContacts ? hunterContacts : hunterContacts.slice(0, 5)).map((c, i) => (
-                  <tr key={i}>
-                    <td>{c.value}</td>
-                    <td>{c.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       {/* ── ДЕЙСТВИЯ ────────────────────────────── */}
       <section className="dashboard__section dashboard__actions">
         <button className="btn btn--export" onClick={exportAnalytics}>
-          Экспорт в JSON
+          Экспорт метрик в JSON
         </button>
         <button
           className={`btn btn--reset ${confirmReset ? "btn--reset-confirm" : ""}`}
