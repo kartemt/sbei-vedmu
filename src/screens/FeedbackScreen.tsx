@@ -61,7 +61,7 @@ function getFeedback(variant: OutcomeVariant, gameCase: GameCase): CaseFeedback 
   }
 }
 
-const AUTO_ADVANCE_MS = 4000;
+const AUTO_ADVANCE_MS = 6000;
 
 export function FeedbackScreen({ gameCase, variant, onNext }: Props) {
   const outcome = getOutcome(variant, gameCase);

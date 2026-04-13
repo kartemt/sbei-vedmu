@@ -6,7 +6,7 @@ export const rounds: RoundData[] = [
     title: "Раунд 1",
     subtitle: "Есть ли путь к деньгам?",
     introText: "Смотрите только на два сигнала: есть ли путь к деньгам и есть ли следующий шаг.",
-    flightDurationMs: 7000,
+    flightDurationMs: 10500,
     artifactId: "owner_lens",
   },
   {
@@ -14,7 +14,7 @@ export const rounds: RoundData[] = [
     title: "Раунд 2",
     subtitle: "Один зелёный сигнал не спасает",
     introText: "Тёплый контакт без структуры покупки — не opportunity.",
-    flightDurationMs: 6000,
+    flightDurationMs: 9000,
     artifactId: "next_step_compass",
   },
   {
@@ -22,7 +22,7 @@ export const rounds: RoundData[] = [
     title: "Раунд 3",
     subtitle: "Смотрите не на активность, а на структуру покупки",
     introText: "Пилот, торг, встречи — это ещё не покупка.",
-    flightDurationMs: 5500,
+    flightDurationMs: 8250,
     artifactId: "buying_process_seal",
   },
   {
@@ -30,7 +30,7 @@ export const rounds: RoundData[] = [
     title: "Раунд 4",
     subtitle: "Есть ли реальный механизм покупки?",
     introText: "Финальный противник. Всё выглядит как почти-закрытая сделка.",
-    flightDurationMs: 5000,
+    flightDurationMs: 7500,
     artifactId: "budget_hook",
   },
 ];
