@@ -7,6 +7,21 @@
  */
 
 import type { CaseResult, GameResults } from "../types";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config/supabase";
+
+// ── Remote event ping (fire-and-forget) ──────────────────────────────────
+function sendEvent(eventType: string, value = 1): void {
+  fetch(`${SUPABASE_URL}/rest/v1/game_events`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Prefer": "return=minimal",
+    },
+    body: JSON.stringify({ game: "witch_hunt", event_type: eventType, value }),
+  }).catch(() => { /* silent — metrics are best-effort */ });
+}
 
 // ── Admin access ──────────────────────────────────────────────────────────
 // PIN protects the in-game metrics dashboard (non-PII data only).
@@ -110,6 +125,7 @@ export function trackVisit(): void {
   }
   store.lastVisitDate = todayStr;
   save(store);
+  sendEvent("visit");
 }
 
 export function trackScreen3(): void {
@@ -119,18 +135,21 @@ export function trackScreen3(): void {
   const store = load();
   store.screen3Visits += 1;
   save(store);
+  sendEvent("screen3");
 }
 
 export function trackCta(): void {
   const store = load();
   store.ctaClicks += 1;
   save(store);
+  sendEvent("cta");
 }
 
 export function trackRating(rating: 1 | 2 | 3 | 4 | 5): void {
   const store = load();
   store.ratings[rating] += 1;
   save(store);
+  sendEvent("rating", rating);
 }
 
 export function trackCompletion(
@@ -140,6 +159,7 @@ export function trackCompletion(
   const store = load();
   store.completions += 1;
   save(store);
+  sendEvent("completion");
 
   const session = sessionStorage.getItem(KEY_SESSION) ?? uid();
   const entry: LeaderEntry = {
