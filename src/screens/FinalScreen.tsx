@@ -86,7 +86,7 @@ export function FinalScreen({ results, caseResults, onRestart }: Props) {
   }
 
   async function handleHunterJoin() {
-    const result = await submitContact(contact);
+    const result = await submitContact(contact, "final");
     if (result === "ok") trackCta();
     setPhase("done");
   }

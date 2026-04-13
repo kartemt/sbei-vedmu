@@ -8,8 +8,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config/supabase";
 import { sanitizeContact } from "./sanitize";
 
 export type SubmitResult = "ok" | "empty" | "error";
+export type ContactSource = "gate" | "final";
 
-export async function submitContact(raw: string): Promise<SubmitResult> {
+export async function submitContact(raw: string, source: ContactSource): Promise<SubmitResult> {
   const value = sanitizeContact(raw);
   if (!value) return "empty";
 
@@ -22,7 +23,7 @@ export async function submitContact(raw: string): Promise<SubmitResult> {
         "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
         "Prefer": "return=minimal",
       },
-      body: JSON.stringify({ value }),
+      body: JSON.stringify({ value, source }),
     });
 
     return res.ok ? "ok" : "error";

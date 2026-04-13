@@ -12,7 +12,7 @@ export function ContactGateScreen({ onContinue }: Props) {
   const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit() {
-    const result = await submitContact(value);
+    const result = await submitContact(value, "gate");
     if (result === "ok") trackCta();
     setSubmitted(true);
     setTimeout(onContinue, 800);
